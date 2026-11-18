@@ -77,7 +77,7 @@ if errors:
  with st.expander('View API errors'):
   for item,message in errors:st.write(f'**{item}:** {message}')
 if not df.empty and (df['Data status']=='Stale').any():
- st.warning(f\"{int((df['Data status']=='Stale').sum())} materials have observations older than {STALE_AFTER_HOURS} hours. Stale prices are excluded from profitability estimates.\")
+ st.warning(f"{int((df['Data status']=='Stale').sum())} materials have observations older than {STALE_AFTER_HOURS} hours. Stale prices are excluded from profitability estimates.")
 if valid.empty:st.warning('No current listings found for watched materials. Try refreshing later.')
 else:
  c1,c2,c3,c4=st.columns(4)

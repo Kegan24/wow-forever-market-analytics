@@ -45,13 +45,15 @@ with st.sidebar:
  fee=st.slider('AH sale fee (%)',0,15,5)
  realized=st.slider('Estimated realized sale price (% of minimum buyout)',40,100,90)
  st.caption('Gathered materials have an opportunity cost when evaluating crafting. Prices reflect listings, not confirmed sales.')
- watched=st.multiselect('Watched materials (limit 20 per refresh)',list(ITEMS),default=['Copper Ore','Tin Ore','Iron Ore','Copper Bar','Tin Bar','Iron Bar','Peacebloom','Briarthorn','Bruiseweed','Heavy Stone'],max_selections=20)\n if st.button('Refresh latest available data',use_container_width=True):
+ watched=st.multiselect('Watched materials (limit 20 per refresh)',list(ITEMS),default=['Copper Ore','Tin Ore','Iron Ore','Copper Bar','Tin Bar','Iron Bar','Peacebloom','Briarthorn','Bruiseweed','Heavy Stone'],max_selections=20)
+ if st.button('Refresh latest available data',use_container_width=True):
   get_price.clear();st.rerun()
 
 st.info('The provider publishes observations on its own schedule. Refresh fetches the latest available data; it cannot force an in-game scan.')
 with st.spinner('Loading watched materials…'):
  rows=[];histories={};errors=[]
- for name in watched:\n  item_id=ITEMS[name]
+ for name in watched:
+   item_id=ITEMS[name]
   data,provider_ttl,age,error=get_price(item_id)
   if error: errors.append((name,error));continue
   latest=(data or {}).get('latest') or {}
@@ -61,14 +63,21 @@ with st.spinner('Loading watched materials…'):
    'Copper/unit':price,'Gold/20':price*20/10000 if price is not None else None,
    '7d median copper':latest.get('median7d'),'Quantity listed':latest.get('quantity'),
    'Estimated sold/day':((latest.get('sales') or {}).get('estimatedPerDay') if isinstance(latest.get('sales'),dict) else None),
-   'Observed at':latest.get('observedAt'), 'Age (hours)':round(age,2) if age is not None else None,\n   'Data status':'Stale' if age is None or age>STALE_AFTER_HOURS else 'Recent',\n   'Cache max-age (s)':provider_ttl})
+   'Observed at':latest.get('observedAt'), 'Age (hours)':round(age,2) if age is not None else None,
+   'Data status':'Stale' if age is None or age>STALE_AFTER_HOURS else 'Recent',
+   'Cache max-age (s)':provider_ttl})
   if series:histories[name]=series
 
 
 df=pd.DataFrame(rows)
 if df.empty:st.error('No price data available. Check internet connectivity and the provider status.');st.stop()
 valid=df.dropna(subset=['Copper/unit'])
-if errors:\n st.warning(f'{len(errors)} item requests failed; remaining results are displayed. No price is assumed for failed requests.')\n with st.expander('View API errors'):\n  for item,message in errors:st.write(f'**{item}:** {message}')\nif not df.empty and (df['Data status']=='Stale').any():\n st.warning(f\"{int((df['Data status']=='Stale').sum())} materials have observations older than {STALE_AFTER_HOURS} hours. Stale prices are excluded from profitability estimates.\")
+if errors:
+ st.warning(f'{len(errors)} item requests failed; remaining results are displayed. No price is assumed for failed requests.')
+ with st.expander('View API errors'):
+  for item,message in errors:st.write(f'**{item}:** {message}')
+if not df.empty and (df['Data status']=='Stale').any():
+ st.warning(f\"{int((df['Data status']=='Stale').sum())} materials have observations older than {STALE_AFTER_HOURS} hours. Stale prices are excluded from profitability estimates.\")
 if valid.empty:st.warning('No current listings found for watched materials. Try refreshing later.')
 else:
  c1,c2,c3,c4=st.columns(4)

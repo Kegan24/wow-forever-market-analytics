@@ -53,7 +53,7 @@ st.info('The provider publishes observations on its own schedule. Refresh fetche
 with st.spinner('Loading watched materials…'):
  rows=[];histories={};errors=[]
  for name in watched:
-   item_id=ITEMS[name]
+  item_id=ITEMS[name]
   data,provider_ttl,age,error=get_price(item_id)
   if error: errors.append((name,error));continue
   latest=(data or {}).get('latest') or {}

@@ -1,5 +1,6 @@
 """Local SQLite price history for the WoW Forever dashboard."""
 import sqlite3
+from contextlib import closing
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -7,7 +8,7 @@ DEFAULT_DB = Path(__file__).with_name('market_history.sqlite3')
 
 
 def initialize(path=DEFAULT_DB):
-    with sqlite3.connect(path) as conn:
+    with closing(sqlite3.connect(path)) as conn:
         conn.execute('''CREATE TABLE IF NOT EXISTS price_snapshots (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             market TEXT NOT NULL,
@@ -36,7 +37,7 @@ def save_snapshot(market, row, path=DEFAULT_DB):
     except (ValueError, TypeError, KeyError):
         return False
     initialize(path)
-    with sqlite3.connect(path) as conn:
+    with closing(sqlite3.connect(path)) as conn:
         cursor = conn.execute('''INSERT OR IGNORE INTO price_snapshots
             (market,item_id,item_name,observed_at,fetched_at,min_buyout_copper,quantity)
             VALUES (?,?,?,?,?,?,?)''',
@@ -46,7 +47,7 @@ def save_snapshot(market, row, path=DEFAULT_DB):
 
 def load_history(market, item_id=None, path=DEFAULT_DB):
     initialize(path)
-    with sqlite3.connect(path) as conn:
+    with closing(sqlite3.connect(path)) as conn:
         conn.row_factory = sqlite3.Row
         if item_id is None:
             result = conn.execute('SELECT * FROM price_snapshots WHERE market=? ORDER BY observed_at', (market,))

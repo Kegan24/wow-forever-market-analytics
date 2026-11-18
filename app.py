@@ -45,13 +45,13 @@ with st.sidebar:
  fee=st.slider('AH sale fee (%)',0,15,5)
  realized=st.slider('Estimated realized sale price (% of minimum buyout)',40,100,90)
  st.caption('Gathered materials have an opportunity cost when evaluating crafting. Prices reflect listings, not confirmed sales.')
- if st.button('Refresh latest available data',use_container_width=True):
+ watched=st.multiselect('Watched materials (limit 20 per refresh)',list(ITEMS),default=['Copper Ore','Tin Ore','Iron Ore','Copper Bar','Tin Bar','Iron Bar','Peacebloom','Briarthorn','Bruiseweed','Heavy Stone'],max_selections=20)\n if st.button('Refresh latest available data',use_container_width=True):
   get_price.clear();st.rerun()
 
 st.info('The provider publishes observations on its own schedule. Refresh fetches the latest available data; it cannot force an in-game scan.')
 with st.spinner('Loading watched materials…'):
  rows=[];histories={};errors=[]
- for name,item_id in ITEMS.items():
+ for name in watched:\n  item_id=ITEMS[name]
   data,provider_ttl,age,error=get_price(item_id)
   if error: errors.append((name,error));continue
   latest=(data or {}).get('latest') or {}
@@ -89,8 +89,8 @@ st.dataframe(filtered[['Material','Type','Skill required','Price/unit','Gold/20'
 
 st.subheader('Estimated farming profitability')
 st.caption('Enter how many units you actually gather per hour. Defaults are zero to avoid inventing drop rates or node density.')
-choices=[x for x in ITEMS if CATEGORY[x] in ('Ore','Herb','Stone')]
-selected=st.multiselect('Materials collected on your route',choices,default=['Tin Ore','Iron Ore','Heavy Stone','Bruiseweed'])
+choices=[x for x in watched if CATEGORY[x] in ('Ore','Herb','Stone')]
+selected=st.multiselect('Materials collected on your route',choices,default=[x for x in ['Tin Ore','Iron Ore','Heavy Stone','Bruiseweed'] if x in choices])
 outputs=[]
 for name in selected:
  price_row=df.loc[df['Material']==name]

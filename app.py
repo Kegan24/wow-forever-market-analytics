@@ -1,6 +1,7 @@
 import pandas as pd
 import streamlit as st
-from market_api import MarketAPIError, fetch_price, observation_age_hours
+from market_api import MarketAPIError, fetch_price
+from market_analytics import median_deviation_percent, price_signal, eligible_for_estimate
 
 st.set_page_config(page_title='WoW Forever Gold Dashboard', layout='wide')
 MARKET='forever.normal.horde.us'
@@ -65,7 +66,9 @@ with st.spinner('Loading watched materials…'):
    'Estimated sold/day':((latest.get('sales') or {}).get('estimatedPerDay') if isinstance(latest.get('sales'),dict) else None),
    'Observed at':latest.get('observedAt'), 'Age (hours)':round(age,2) if age is not None else None,
    'Data status':'Stale' if age is None or age>STALE_AFTER_HOURS else 'Recent',
-   'Cache max-age (s)':provider_ttl})
+   'Cache max-age (s)':provider_ttl,
+   'vs 7d median (%)':median_deviation_percent(price,latest.get('median7d')),
+   'Price position':price_signal(price,latest.get('median7d'))})
   if series:histories[name]=series
 
 
@@ -83,10 +86,11 @@ else:
  c1,c2,c3,c4=st.columns(4)
  c1.metric('Materials with listings',len(valid))
  c2.metric('Gold on hand',f'{gold:.1f}g')
- c3.metric('Mining unlock', 'Iron' if mining>=125 else f'{125-mining} skill to Iron')
- c4.metric('Herbalism unlock','Goldthorn' if herbalism>=170 else f'{170-herbalism} skill to Goldthorn')
+ c3.metric('Mining skill',f'{mining}/300')
+ c4.metric('Herbalism skill',f'{herbalism}/300')
 
 st.subheader('Material market screener')
+st.caption('Price position compares the current minimum listing with the provider\'s seven-day median. Above/below does not establish sale demand or profit.')
 only_accessible=st.checkbox('Show only materials I can gather',value=False)
 category=st.multiselect('Material categories',['Ore','Herb','Stone','Bar'],default=['Ore','Herb','Stone','Bar'])
 filtered=df[df['Type'].isin(category)].copy()
@@ -94,7 +98,7 @@ if only_accessible:
  filtered=filtered[filtered.apply(lambda r: (r['Type']=='Ore' and (pd.isna(r['Skill required']) or mining>=r['Skill required'])) or (r['Type']=='Herb' and (pd.isna(r['Skill required']) or herbalism>=r['Skill required'])) or r['Type'] in ('Stone','Bar'),axis=1)]
 filtered['Price/unit']=filtered['Copper/unit'].apply(coins)
 filtered['7d median']=filtered['7d median copper'].apply(coins)
-st.dataframe(filtered[['Material','Type','Skill required','Price/unit','Gold/20','7d median','Quantity listed','Estimated sold/day','Observed at','Age (hours)','Data status']].sort_values('Gold/20',ascending=False,na_position='last'),hide_index=True,use_container_width=True)
+st.dataframe(filtered[['Material','Type','Skill required','Price/unit','Gold/20','7d median','vs 7d median (%)','Price position','Quantity listed','Estimated sold/day','Observed at','Age (hours)','Data status']].sort_values('Gold/20',ascending=False,na_position='last'),hide_index=True,use_container_width=True)
 
 st.subheader('Estimated farming profitability')
 st.caption('Enter how many units you actually gather per hour. Defaults are zero to avoid inventing drop rates or node density.')
@@ -103,7 +107,7 @@ selected=st.multiselect('Materials collected on your route',choices,default=[x f
 outputs=[]
 for name in selected:
  price_row=df.loc[df['Material']==name]
- price=price_row['Copper/unit'].iloc[0] if not price_row.empty and price_row['Data status'].iloc[0]=='Recent' else None
+ price=price_row['Copper/unit'].iloc[0] if not price_row.empty and eligible_for_estimate(price_row['Copper/unit'].iloc[0],price_row['Age (hours)'].iloc[0]) else None
  a,b,c=st.columns([3,2,2]);a.write(name)
  units=b.number_input('Units/hour',min_value=0,max_value=1000,value=0,key=f'qty_{name}',label_visibility='collapsed')
  c.write(coins(price) if pd.notna(price) else 'No listing')
